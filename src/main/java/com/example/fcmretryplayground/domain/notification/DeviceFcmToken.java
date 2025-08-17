@@ -1,5 +1,6 @@
-package com.example.fcmretryplayground.domain;
+package com.example.fcmretryplayground.domain.notification;
 
+import com.example.fcmretryplayground.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

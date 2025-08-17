@@ -1,4 +1,4 @@
-package com.example.fcmretryplayground.domain;
+package com.example.fcmretryplayground.domain.notification;
 
 public enum FcmTokenStatus {
     ACTIVE(true),
