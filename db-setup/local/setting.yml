@@ -1,8 +1,8 @@
 version: '3'
 services:
-  local-mysql:
+  fr-mysql:
     image: mysql:8.0
-    container_name: local-mysql
+    container_name: fr-mysql
     ports:
       - 3306:3306
     environment:
@@ -13,16 +13,16 @@ services:
       - ./mysql-conf:/etc/mysql/conf.d
       - ./mysql-init:/docker-entrypoint-initdb.d
     networks:
-      - local-network
+      - fr-network
 
-  local-redis:
+  f-redis:
     image: redis:alpine
-    container_name: local-redis
+    container_name: fr-redis
     command: ["redis-server", "--requirepass", "1234"]
     ports:
       - 6379:6379
     networks:
-      - local-network
+      - fr-network
 
 networks:
-  local-network:
+  fr-network:
