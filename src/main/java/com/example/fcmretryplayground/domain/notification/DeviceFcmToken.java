@@ -1,6 +1,6 @@
 package com.example.fcmretryplayground.domain.notification;
 
-import com.example.fcmretryplayground.domain.User;
+import com.example.fcmretryplayground.domain.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,6 +12,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -41,5 +44,26 @@ public class DeviceFcmToken {
     @Enumerated(value = EnumType.STRING)
     @Column(nullable = false)
     private FcmTokenStatus status;
+
+    @Builder(access = AccessLevel.PRIVATE)
+    private DeviceFcmToken(User user, String deviceId, Boolean notificationOptIn, String fcmToken,
+                           FcmTokenStatus status) {
+        this.user = user;
+        this.deviceId = deviceId;
+        this.notificationOptIn = notificationOptIn;
+        this.fcmToken = fcmToken;
+        this.status = status;
+    }
+
+    public static DeviceFcmToken create(User user, Boolean notificationOptIn, String fcmToken,
+                                        FcmTokenStatus status) {
+        return DeviceFcmToken.builder()
+                .user(user)
+                .deviceId(UUID.randomUUID().toString())
+                .notificationOptIn(notificationOptIn)
+                .fcmToken(fcmToken)
+                .status(status)
+                .build();
+    }
 
 }
