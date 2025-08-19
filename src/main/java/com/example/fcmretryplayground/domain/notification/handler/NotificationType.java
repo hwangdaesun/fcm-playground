@@ -1,5 +1,8 @@
 package com.example.fcmretryplayground.domain.notification.handler;
 
+import lombok.Getter;
+
+@Getter
 public enum NotificationType {
     EXAMPLE_ALARM("제목 예시", "메시지 예시");
 
