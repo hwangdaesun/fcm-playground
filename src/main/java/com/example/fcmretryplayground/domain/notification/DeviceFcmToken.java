@@ -66,4 +66,8 @@ public class DeviceFcmToken {
                 .build();
     }
 
+    public void markInvalid() {
+        this.status = FcmTokenStatus.INVALID;
+    }
+
 }

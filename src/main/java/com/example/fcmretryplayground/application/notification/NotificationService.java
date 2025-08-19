@@ -1,0 +1,101 @@
+package com.example.fcmretryplayground.application.notification;
+
+import com.example.fcmretryplayground.common.RetryableAlarmException;
+import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
+import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
+import com.example.fcmretryplayground.domain.notification.FailNotificationLog;
+import com.example.fcmretryplayground.domain.notification.FailNotificationLogRepository;
+import com.example.fcmretryplayground.domain.notification.FcmTokenStatus;
+import com.example.fcmretryplayground.domain.notification.handler.NotificationCommand;
+import com.example.fcmretryplayground.domain.user.User;
+import com.example.fcmretryplayground.domain.user.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
+import com.google.firebase.messaging.Notification;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class NotificationService {
+
+    private final ObjectMapper mapper;
+    private final FailNotificationLogRepository failNotificationLogRepository;
+    private final DeviceFcmTokenRepository deviceFcmTokenRepository;
+    private final UserRepository userRepository;
+
+    public void send(NotificationCommand command) {
+        List<Long> recipientIds = command.recipients().stream().map(recipient -> recipient.getId()).toList();
+        List<User> users = userRepository.findAllById(recipientIds);
+        for (User user : users) {
+            List<DeviceFcmToken> activeTokens = deviceFcmTokenRepository.findAllByUserAndStatus(user,
+                    FcmTokenStatus.ACTIVE);
+            for (DeviceFcmToken deviceFcmToken : activeTokens) {
+                sendMessage(deviceFcmToken, command.type().getTitle(), command.type().getMessage());
+            }
+        }
+    }
+
+    @Retryable(
+            value = RetryableAlarmException.class,
+            maxAttempts = 4,
+            backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 5000)
+    )
+    public void sendMessage(DeviceFcmToken deviceFcmToken, String title, String body) {
+        Message message = buildMessage(deviceFcmToken.getFcmToken(), title, body);
+        try {
+            String response = FirebaseMessaging.getInstance().send(message);
+            log.info("Send Notification Success: {}", response);
+        } catch (FirebaseMessagingException e) {
+            MessagingErrorCode code = e.getMessagingErrorCode();
+            switch (code) {
+                case INTERNAL, UNAVAILABLE, QUOTA_EXCEEDED -> {
+                    throw new RetryableAlarmException(code);
+                }
+                case UNREGISTERED, SENDER_ID_MISMATCH, INVALID_ARGUMENT -> {
+                    recordFailNotification(deviceFcmToken, message, code);
+                }
+            }
+            log.error("메시지 전송 실패 : {}", e.getMessagingErrorCode().name());
+        }
+    }
+
+    @Recover
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recover(
+            RetryableAlarmException ex,
+            DeviceFcmToken deviceFcmToken, String title, String body) {
+        Message message = buildMessage(deviceFcmToken.getFcmToken(), title, body);
+        recordFailNotification(deviceFcmToken, message, ex.getCode());
+    }
+
+    private void recordFailNotification(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
+        try {
+            deviceFcmToken.markInvalid();
+            FailNotificationLog failLog = FailNotificationLog.record(
+                    deviceFcmToken.getId(), mapper.writeValueAsString(message), code);
+            failNotificationLogRepository.save(failLog);
+            log.info("Fail Notification Log 기록 성공: {}", failLog);
+        } catch (Exception e) {
+            log.error("Fail Notification Log 기록 실패 : {}", e.getMessage());
+        }
+    }
+
+    private Message buildMessage(String fcmToken, String title, String body) {
+        return Message.builder()
+                .setToken(fcmToken)
+                .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                .build();
+    }
+}
