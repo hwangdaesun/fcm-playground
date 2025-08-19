@@ -1,4 +1,4 @@
-package com.example.fcmretryplayground.domain;
+package com.example.fcmretryplayground.domain.user;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,4 +21,12 @@ public class User {
 
     @Column(name = "EMAIL", length = 50, unique = true)
     private String email;
+
+    private User(String email) {
+        this.email = email;
+    }
+
+    public static User create(String email){
+        return new User(email);
+    }
 }
