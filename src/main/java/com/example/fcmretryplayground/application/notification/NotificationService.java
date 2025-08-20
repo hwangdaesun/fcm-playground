@@ -42,7 +42,9 @@ public class NotificationService {
             List<DeviceFcmToken> activeTokens = deviceFcmTokenRepository.findAllByUserAndStatus(user,
                     FcmTokenStatus.ACTIVE);
             for (DeviceFcmToken deviceFcmToken : activeTokens) {
-                sendMessage(deviceFcmToken, command.type().getTitle(), command.type().getMessage());
+                Message message = buildMessage(deviceFcmToken.getFcmToken(), command.type().getTitle(),
+                        command.type().getMessage());
+                sendMessage(deviceFcmToken, message);
             }
         }
     }
@@ -52,8 +54,7 @@ public class NotificationService {
             maxAttempts = 4,
             backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 5000)
     )
-    public void sendMessage(DeviceFcmToken deviceFcmToken, String title, String body) {
-        Message message = buildMessage(deviceFcmToken.getFcmToken(), title, body);
+    public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
         try {
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("Send Notification Success: {}", response);
@@ -75,8 +76,7 @@ public class NotificationService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recover(
             RetryableAlarmException ex,
-            DeviceFcmToken deviceFcmToken, String title, String body) {
-        Message message = buildMessage(deviceFcmToken.getFcmToken(), title, body);
+            DeviceFcmToken deviceFcmToken, Message message) {
         recordFailNotification(deviceFcmToken, message, ex.getCode());
     }
 
