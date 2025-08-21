@@ -52,7 +52,7 @@ public class NotificationService {
     @Retryable(
             value = RetryableAlarmException.class,
             maxAttempts = 4,
-            backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 5000)
+            backoff = @Backoff(delay = 5000, multiplier = 2.0, maxDelay = 900000)
     )
     public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
         try {
