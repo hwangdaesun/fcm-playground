@@ -11,6 +11,7 @@ import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
 import com.example.fcmretryplayground.domain.notification.FailNotificationLogRepository;
 import com.example.fcmretryplayground.domain.user.UserRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
@@ -68,6 +69,37 @@ class NotificationServiceTest {
 
             //then
             verify(mockFirebaseMessaging, times(2)).send(any(Message.class));
+        }
+    }
+
+    @Test
+    @Description("첫 시도, 재시도 모두 실패 후 복구 메서드 수행")
+    void retry_exhausted_then_recover() throws FirebaseMessagingException, JsonProcessingException {
+        //given
+        String mockFcmToken = "mockFcmToken";
+        DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(1L, mockFcmToken);
+        Message mockMessage = getMessage(mockFcmToken);
+
+        FirebaseMessagingException mockMessagingException = getException(MessagingErrorCode.INTERNAL);
+        FirebaseMessaging mockFirebaseMessaging = mock(FirebaseMessaging.class);
+
+        //when
+        try(MockedStatic<FirebaseMessaging> firebaseMessagingMockedStatic = Mockito.mockStatic(
+                FirebaseMessaging.class)) {
+            firebaseMessagingMockedStatic.when(FirebaseMessaging::getInstance).thenReturn(mockFirebaseMessaging);
+
+            when(mockFirebaseMessaging.send(any(Message.class)))
+                    .thenThrow(mockMessagingException)
+                    .thenThrow(mockMessagingException)
+                    .thenThrow(mockMessagingException)
+                    .thenThrow(mockMessagingException);
+
+            when(objectMapper.writeValueAsString(any())).thenReturn("{}");
+            //then
+            notificationService.sendMessage(mockDeviceFcmToken, mockMessage);
+
+            verify(mockFirebaseMessaging, times(4)).send(any(Message.class));
+            verify(failNotificationLogRepository, times(1)).save(any());
         }
     }
 
