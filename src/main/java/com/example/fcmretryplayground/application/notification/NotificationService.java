@@ -64,9 +64,10 @@ public class NotificationService {
                 case INTERNAL, UNAVAILABLE, QUOTA_EXCEEDED -> {
                     throw new RetryableAlarmException(code);
                 }
-                case UNREGISTERED, SENDER_ID_MISMATCH, INVALID_ARGUMENT -> {
+                case UNREGISTERED -> {
                     recordFailNotification(deviceFcmToken, message, code);
                 }
+                default -> recordFailNotification(deviceFcmToken, message, code);
             }
             log.error("메시지 전송 실패 : {}", e.getMessagingErrorCode().name());
         }
