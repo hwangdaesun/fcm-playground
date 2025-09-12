@@ -45,24 +45,30 @@ public class DeviceFcmToken {
     @Column(nullable = false)
     private FcmTokenStatus status;
 
+    @Enumerated(value = EnumType.STRING)
+    @Column(nullable = false)
+    private DeviceType deviceType;
+
     @Builder(access = AccessLevel.PRIVATE)
     private DeviceFcmToken(User user, String deviceId, Boolean notificationOptIn, String fcmToken,
-                           FcmTokenStatus status) {
+                           FcmTokenStatus status, DeviceType deviceType) {
         this.user = user;
         this.deviceId = deviceId;
         this.notificationOptIn = notificationOptIn;
         this.fcmToken = fcmToken;
         this.status = status;
+        this.deviceType = deviceType;
     }
 
     public static DeviceFcmToken create(User user, Boolean notificationOptIn, String fcmToken,
-                                        FcmTokenStatus status) {
+                                        FcmTokenStatus status, DeviceType deviceType) {
         return DeviceFcmToken.builder()
                 .user(user)
                 .deviceId(UUID.randomUUID().toString())
                 .notificationOptIn(notificationOptIn)
                 .fcmToken(fcmToken)
                 .status(status)
+                .deviceType(deviceType)
                 .build();
     }
 

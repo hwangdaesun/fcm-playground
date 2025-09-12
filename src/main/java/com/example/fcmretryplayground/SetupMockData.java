@@ -2,6 +2,7 @@ package com.example.fcmretryplayground;
 
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
+import com.example.fcmretryplayground.domain.notification.DeviceType;
 import com.example.fcmretryplayground.domain.notification.FcmTokenStatus;
 import com.example.fcmretryplayground.domain.user.User;
 import com.example.fcmretryplayground.domain.user.UserRepository;
@@ -18,7 +19,8 @@ public class SetupMockData {
     @Transactional
     public void execute() {
         User user = userRepository.save(User.create("sonny123@test.com"));
-        deviceFcmTokenRepository.save(DeviceFcmToken.create(user, true, "mockFcmToken", FcmTokenStatus.ACTIVE));
+        deviceFcmTokenRepository.save(
+                DeviceFcmToken.create(user, true, "mockFcmToken", FcmTokenStatus.ACTIVE, DeviceType.IOS));
     }
 
 }
