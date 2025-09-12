@@ -36,6 +36,7 @@ public class NotificationService {
     private final DeviceFcmTokenRepository deviceFcmTokenRepository;
     private final UserRepository userRepository;
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void send(NotificationCommand command) {
         List<Long> recipientIds = command.recipients().stream().map(Recipient::getId).toList();
         List<User> users = userRepository.findAllById(recipientIds);
