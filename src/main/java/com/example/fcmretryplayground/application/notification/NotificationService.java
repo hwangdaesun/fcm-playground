@@ -3,10 +3,11 @@ package com.example.fcmretryplayground.application.notification;
 import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
-import com.example.fcmretryplayground.domain.notification.FailNotificationLog;
-import com.example.fcmretryplayground.domain.notification.FailNotificationLogRepository;
 import com.example.fcmretryplayground.domain.notification.FcmTokenStatus;
+import com.example.fcmretryplayground.domain.notification.NotificationLog;
+import com.example.fcmretryplayground.domain.notification.NotificationLogRepository;
 import com.example.fcmretryplayground.domain.notification.handler.NotificationCommand;
+import com.example.fcmretryplayground.domain.notification.handler.Recipient;
 import com.example.fcmretryplayground.domain.user.User;
 import com.example.fcmretryplayground.domain.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,12 +32,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private final ObjectMapper mapper;
-    private final FailNotificationLogRepository failNotificationLogRepository;
+    private final NotificationLogRepository notificationLogRepository;
     private final DeviceFcmTokenRepository deviceFcmTokenRepository;
     private final UserRepository userRepository;
 
     public void send(NotificationCommand command) {
-        List<Long> recipientIds = command.recipients().stream().map(recipient -> recipient.getId()).toList();
+        List<Long> recipientIds = command.recipients().stream().map(Recipient::getId).toList();
         List<User> users = userRepository.findAllById(recipientIds);
         for (User user : users) {
             List<DeviceFcmToken> activeTokens = deviceFcmTokenRepository.findAllByUserAndStatus(user,
@@ -52,7 +53,7 @@ public class NotificationService {
     @Retryable(
             value = RetryableAlarmException.class,
             maxAttempts = 4,
-            backoff = @Backoff(delay = 5000, multiplier = 2.0, maxDelay = 900000)
+            backoff = @Backoff(delay = 5000, multiplier = 2.0)
     )
     public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
         try {
@@ -65,9 +66,9 @@ public class NotificationService {
                     throw new RetryableAlarmException(code);
                 }
                 case UNREGISTERED -> {
-                    recordFailNotification(deviceFcmToken, message, code);
+                    recordNotificationLog(deviceFcmToken, message, code);
                 }
-                default -> recordFailNotification(deviceFcmToken, message, code);
+                default -> recordNotificationLog(deviceFcmToken, message, code);
             }
             log.error("메시지 전송 실패 : {}", e.getMessagingErrorCode().name());
         }
@@ -78,15 +79,15 @@ public class NotificationService {
     public void recover(
             RetryableAlarmException ex,
             DeviceFcmToken deviceFcmToken, Message message) {
-        recordFailNotification(deviceFcmToken, message, ex.getCode());
+        recordNotificationLog(deviceFcmToken, message, ex.getCode());
     }
 
-    private void recordFailNotification(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
+    private void recordNotificationLog(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
         try {
             deviceFcmToken.markInvalid();
-            FailNotificationLog failLog = FailNotificationLog.record(
+            NotificationLog failLog = NotificationLog.record(
                     deviceFcmToken.getId(), mapper.writeValueAsString(message), code);
-            failNotificationLogRepository.save(failLog);
+            notificationLogRepository.save(failLog);
             log.info("Fail Notification Log 기록 성공: {}", failLog);
         } catch (Exception e) {
             log.error("Fail Notification Log 기록 실패 : {}", e.getMessage());

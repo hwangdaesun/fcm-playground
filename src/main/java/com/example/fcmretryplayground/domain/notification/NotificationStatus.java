@@ -1,5 +1,5 @@
 package com.example.fcmretryplayground.domain.notification;
 
-public enum FailNotificationStatus {
+public enum NotificationStatus {
     SUCCESS, FAIL
 }

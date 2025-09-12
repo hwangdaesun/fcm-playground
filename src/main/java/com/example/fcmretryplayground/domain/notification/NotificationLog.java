@@ -17,16 +17,16 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Entity
-@Table(name = "FAIL_ALARM_LOG")
-public class FailNotificationLog {
+@Table(name = "NOTIFICATION_LOG")
+public class NotificationLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "FAIL_ALARM_LOG_ID", nullable = false)
+    @Column(name = "NOTIFICATION_LOG_ID", nullable = false)
     private Long id;
 
-    @Column(name = "USER_ALARM_TOKEN_ID", nullable = false)
-    private Long userAlarmTokenId;
+    @Column(name = "USER_NOTIFICATION_TOKEN_ID", nullable = false)
+    private Long userNotificationTokenId;
 
     @Column(name = "MESSAGE")
     private String message;
@@ -36,39 +36,39 @@ public class FailNotificationLog {
     private MessagingErrorCode errorCode;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "FAIL_NOTIFICATION_STATUS")
-    private FailNotificationStatus failNotificationStatus;
+    @Column(name = "NOTIFICATION_STATUS")
+    private NotificationStatus notificationStatus;
 
     @Column(name = "COUNT")
     private Integer count;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private FailNotificationLog(
-            Long userAlarmTokenId, String message, MessagingErrorCode errorCode,
-            FailNotificationStatus failNotificationStatus, Integer count) {
-        this.userAlarmTokenId = userAlarmTokenId;
+    private NotificationLog(
+            Long userNotificationTokenId, String message, MessagingErrorCode errorCode,
+            NotificationStatus notificationStatus, Integer count) {
+        this.userNotificationTokenId = userNotificationTokenId;
         this.message = message;
         this.errorCode = errorCode;
-        this.failNotificationStatus = failNotificationStatus;
+        this.notificationStatus = notificationStatus;
         this.count = count;
     }
 
-    public static FailNotificationLog record(Long userAlarmTokenId, String message, MessagingErrorCode errorCode) {
-        return FailNotificationLog.builder()
-                .userAlarmTokenId(userAlarmTokenId)
+    public static NotificationLog record(Long userNotificationTokenId, String message, MessagingErrorCode errorCode) {
+        return NotificationLog.builder()
+                .userNotificationTokenId(userNotificationTokenId)
                 .message(message)
                 .errorCode(errorCode)
-                .failNotificationStatus(FailNotificationStatus.FAIL)
+                .notificationStatus(NotificationStatus.FAIL)
                 .count(1)
                 .build();
     }
 
     public void markSuccess() {
-        this.failNotificationStatus = FailNotificationStatus.SUCCESS;
+        this.notificationStatus = NotificationStatus.SUCCESS;
     }
 
     public void markFail() {
-        this.failNotificationStatus = FailNotificationStatus.FAIL;
+        this.notificationStatus = NotificationStatus.FAIL;
         this.count++;
     }
 }

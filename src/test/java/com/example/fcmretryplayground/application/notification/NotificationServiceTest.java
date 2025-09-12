@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
-import com.example.fcmretryplayground.domain.notification.FailNotificationLogRepository;
+import com.example.fcmretryplayground.domain.notification.NotificationLogRepository;
 import com.example.fcmretryplayground.domain.user.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +39,7 @@ class NotificationServiceTest {
     private NotificationService notificationService;
 
     @Autowired
-    private FailNotificationLogRepository failNotificationLogRepository;
+    private NotificationLogRepository notificationLogRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -99,7 +99,7 @@ class NotificationServiceTest {
             notificationService.sendMessage(mockDeviceFcmToken, mockMessage);
 
             verify(mockFirebaseMessaging, times(4)).send(any(Message.class));
-            verify(failNotificationLogRepository, times(1)).save(any());
+            verify(notificationLogRepository, times(1)).save(any());
         }
     }
 
@@ -130,8 +130,8 @@ class NotificationServiceTest {
         }
 
         @Bean
-        public FailNotificationLogRepository getFailNotificationLogRepository() {
-            return mock(FailNotificationLogRepository.class);
+        public NotificationLogRepository getFailNotificationLogRepository() {
+            return mock(NotificationLogRepository.class);
         }
 
         @Bean
@@ -154,10 +154,10 @@ class NotificationServiceTest {
 
     static class TestNotificationService extends NotificationService {
         public TestNotificationService(ObjectMapper mapper,
-                                       FailNotificationLogRepository failNotificationLogRepository,
+                                       NotificationLogRepository notificationLogRepository,
                                        DeviceFcmTokenRepository deviceFcmTokenRepository,
                                        UserRepository userRepository) {
-            super(mapper, failNotificationLogRepository, deviceFcmTokenRepository, userRepository);
+            super(mapper, notificationLogRepository, deviceFcmTokenRepository, userRepository);
         }
 
         @Override
