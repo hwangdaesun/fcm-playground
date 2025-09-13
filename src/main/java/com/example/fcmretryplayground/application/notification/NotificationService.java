@@ -4,6 +4,7 @@ import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
 import com.example.fcmretryplayground.domain.notification.FcmTokenStatus;
+import com.example.fcmretryplayground.domain.notification.NotificationLog;
 import com.example.fcmretryplayground.domain.notification.NotificationLogService;
 import com.example.fcmretryplayground.domain.notification.handler.NotificationCommand;
 import com.example.fcmretryplayground.domain.notification.handler.Recipient;
@@ -49,8 +50,9 @@ public class NotificationService {
                             command.type().getTitle(),
                             command.type().getMessage()
                     );
-
-                    sendMessage(deviceFcmToken, message);
+                    NotificationLog notificationLog = notificationLogService.recordReadyNotificationLog(deviceFcmToken,
+                            message);
+                    sendMessage(deviceFcmToken, message, notificationLog);
                 });
     }
 
@@ -59,11 +61,13 @@ public class NotificationService {
             maxAttempts = 2,
             backoff = @Backoff(delay = 5000, multiplier = 2.0)
     )
-    public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
+    public void sendMessage(DeviceFcmToken deviceFcmToken, Message message, NotificationLog notificationLog) {
         try {
             String response = FirebaseMessaging.getInstance().send(message);
+            notificationLog.markSuccess();
             log.info("Send Notification Success: {}", response);
         } catch (FirebaseMessagingException e) {
+            notificationLog.markFail(e.getMessagingErrorCode());
             handleSendFailure(deviceFcmToken, message, e);
         }
     }
@@ -72,8 +76,8 @@ public class NotificationService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recover(
             RetryableAlarmException ex,
-            DeviceFcmToken deviceFcmToken, Message message) {
-        notificationLogService.recordNotificationLog(deviceFcmToken, message, ex.getCode());
+            DeviceFcmToken deviceFcmToken, Message message, NotificationLog notificationLog) {
+        notificationLogService.recordNotificationLog(notificationLog.getId(), ex.getCode());
     }
 
     public void handleSendFailure(DeviceFcmToken deviceFcmToken, Message message, FirebaseMessagingException e) {
@@ -84,8 +88,14 @@ public class NotificationService {
                 deviceFcmToken.markInvalid();
                 log.error("Device FCM Token Unregistered: {}", deviceFcmToken.getId());
             }
-            case INVALID_ARGUMENT -> log.error("Invalid Argument: {}", message);
-            case SENDER_ID_MISMATCH -> log.error("Sender Id Mismatch"); // Firebase 프로젝트가 다를 경우 ex) 개발용 서버의 토큰을 사용해 운영 서버에 알림을 보내려고 할 때
+            case INVALID_ARGUMENT ->{
+                deviceFcmToken.markInvalid();
+                log.error("Invalid Argument: {}", message);
+            }
+            case SENDER_ID_MISMATCH ->{
+
+                log.error("Sender Id Mismatch");
+            } // Firebase 프로젝트가 다를 경우 ex) 개발용 서버의 토큰을 사용해 운영 서버에 알림을 보내려고 할 때
             case THIRD_PARTY_AUTH_ERROR -> log.error("Third Party Auth Error");
         }
     }
