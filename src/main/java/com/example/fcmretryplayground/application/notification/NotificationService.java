@@ -4,13 +4,11 @@ import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
 import com.example.fcmretryplayground.domain.notification.FcmTokenStatus;
-import com.example.fcmretryplayground.domain.notification.NotificationLog;
-import com.example.fcmretryplayground.domain.notification.NotificationLogRepository;
+import com.example.fcmretryplayground.domain.notification.NotificationLogService;
 import com.example.fcmretryplayground.domain.notification.handler.NotificationCommand;
 import com.example.fcmretryplayground.domain.notification.handler.Recipient;
 import com.example.fcmretryplayground.domain.user.User;
 import com.example.fcmretryplayground.domain.user.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -31,29 +29,34 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class NotificationService {
 
-    private final ObjectMapper mapper;
-    private final NotificationLogRepository notificationLogRepository;
+    private final NotificationLogService notificationLogService;
     private final DeviceFcmTokenRepository deviceFcmTokenRepository;
     private final UserRepository userRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void send(NotificationCommand command) {
-        List<Long> recipientIds = command.recipients().stream().map(Recipient::getId).toList();
-        List<User> users = userRepository.findAllById(recipientIds);
-        for (User user : users) {
-            List<DeviceFcmToken> activeTokens = deviceFcmTokenRepository.findAllByUserAndStatus(user,
-                    FcmTokenStatus.ACTIVE);
-            for (DeviceFcmToken deviceFcmToken : activeTokens) {
-                Message message = buildMessage(deviceFcmToken.getFcmToken(), command.type().getTitle(),
-                        command.type().getMessage());
-                sendMessage(deviceFcmToken, message);
-            }
-        }
+        List<User> users = userRepository.findAllById(
+                command.recipients().stream().map(Recipient::getId).toList()
+        );
+
+        users.stream()
+                .flatMap(user -> deviceFcmTokenRepository
+                        .findAllByUserAndStatus(user, FcmTokenStatus.ACTIVE)
+                        .stream())
+                .forEach(deviceFcmToken -> {
+                    Message message = buildMessage(
+                            deviceFcmToken.getFcmToken(),
+                            command.type().getTitle(),
+                            command.type().getMessage()
+                    );
+
+                    sendMessage(deviceFcmToken, message);
+                });
     }
 
     @Retryable(
-            value = RetryableAlarmException.class,
-            maxAttempts = 4,
+            retryFor = RetryableAlarmException.class,
+            maxAttempts = 2,
             backoff = @Backoff(delay = 5000, multiplier = 2.0)
     )
     public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
@@ -61,17 +64,7 @@ public class NotificationService {
             String response = FirebaseMessaging.getInstance().send(message);
             log.info("Send Notification Success: {}", response);
         } catch (FirebaseMessagingException e) {
-            MessagingErrorCode code = e.getMessagingErrorCode();
-            switch (code) {
-                case INTERNAL, UNAVAILABLE, QUOTA_EXCEEDED -> {
-                    throw new RetryableAlarmException(code);
-                }
-                case UNREGISTERED -> {
-                    recordNotificationLog(deviceFcmToken, message, code);
-                }
-                default -> recordNotificationLog(deviceFcmToken, message, code);
-            }
-            log.error("메시지 전송 실패 : {}", e.getMessagingErrorCode().name());
+            handleSendFailure(deviceFcmToken, message, e);
         }
     }
 
@@ -80,18 +73,20 @@ public class NotificationService {
     public void recover(
             RetryableAlarmException ex,
             DeviceFcmToken deviceFcmToken, Message message) {
-        recordNotificationLog(deviceFcmToken, message, ex.getCode());
+        notificationLogService.recordNotificationLog(deviceFcmToken, message, ex.getCode());
     }
 
-    private void recordNotificationLog(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
-        try {
-            deviceFcmToken.markInvalid();
-            NotificationLog failLog = NotificationLog.record(
-                    deviceFcmToken.getId(), mapper.writeValueAsString(message), code);
-            notificationLogRepository.save(failLog);
-            log.info("Fail Notification Log 기록 성공: {}", failLog);
-        } catch (Exception e) {
-            log.error("Fail Notification Log 기록 실패 : {}", e.getMessage());
+    public void handleSendFailure(DeviceFcmToken deviceFcmToken, Message message, FirebaseMessagingException e) {
+        MessagingErrorCode code = e.getMessagingErrorCode();
+        switch (code) {
+            case INTERNAL, UNAVAILABLE, QUOTA_EXCEEDED -> throw new RetryableAlarmException(code);
+            case UNREGISTERED -> {
+                deviceFcmToken.markInvalid();
+                log.error("Device FCM Token Unregistered: {}", deviceFcmToken.getId());
+            }
+            case INVALID_ARGUMENT -> log.error("Invalid Argument: {}", message);
+            case SENDER_ID_MISMATCH -> log.error("Sender Id Mismatch"); // Firebase 프로젝트가 다를 경우 ex) 개발용 서버의 토큰을 사용해 운영 서버에 알림을 보내려고 할 때
+            case THIRD_PARTY_AUTH_ERROR -> log.error("Third Party Auth Error");
         }
     }
 
