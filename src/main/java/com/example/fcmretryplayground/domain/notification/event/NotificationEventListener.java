@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 public class NotificationEventListener {
 
     private final NotificationService notificationService;
+
     @Async
     @EventListener
     public void execute(NotificationEvent event) {
