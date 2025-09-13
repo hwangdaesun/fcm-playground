@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
+import com.example.fcmretryplayground.domain.notification.NotificationLog;
 import com.example.fcmretryplayground.domain.notification.NotificationLogService;
 import com.example.fcmretryplayground.domain.user.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,6 +49,7 @@ class NotificationServiceTest {
         String mockFcmToken = "mockFcmToken";
         DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(mockFcmToken);
         Message mockMessage = getMessage(mockFcmToken);
+        NotificationLog notificationLog = mock(NotificationLog.class);
 
         FirebaseMessaging mockFirebaseMessaging = mock(FirebaseMessaging.class);
         FirebaseMessagingException mockMessagingException = getException(MessagingErrorCode.INTERNAL);
@@ -61,7 +63,7 @@ class NotificationServiceTest {
                     .thenThrow(mockMessagingException)
                     .thenReturn("ok");
 
-            notificationService.sendMessage(mockDeviceFcmToken, mockMessage);
+            notificationService.sendMessage(mockDeviceFcmToken, mockMessage, notificationLog);
 
             //then
             verify(mockFirebaseMessaging, times(2)).send(any(Message.class));
@@ -75,12 +77,13 @@ class NotificationServiceTest {
         String mockFcmToken = "mockFcmToken";
         DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(mockFcmToken);
         Message mockMessage = getMessage(mockFcmToken);
+        NotificationLog notificationLog = mock(NotificationLog.class);
 
         FirebaseMessagingException mockMessagingException = getException(MessagingErrorCode.INTERNAL);
         FirebaseMessaging mockFirebaseMessaging = mock(FirebaseMessaging.class);
 
         //when
-        try(MockedStatic<FirebaseMessaging> firebaseMessagingMockedStatic = Mockito.mockStatic(
+        try (MockedStatic<FirebaseMessaging> firebaseMessagingMockedStatic = Mockito.mockStatic(
                 FirebaseMessaging.class)) {
             firebaseMessagingMockedStatic.when(FirebaseMessaging::getInstance).thenReturn(mockFirebaseMessaging);
 
@@ -91,10 +94,10 @@ class NotificationServiceTest {
                     .thenThrow(mockMessagingException);
 
             //then
-            notificationService.sendMessage(mockDeviceFcmToken, mockMessage);
+            notificationService.sendMessage(mockDeviceFcmToken, mockMessage, notificationLog);
 
-            verify(mockFirebaseMessaging, times(4)).send(any(Message.class));
-            verify(notificationLogService, times(1)).recordNotificationLog(any(), any(), any());
+            verify(mockFirebaseMessaging, times(2)).send(any(Message.class));
+            verify(notificationLogService, times(1)).recordNotificationLog(any(), any());
         }
     }
 
@@ -145,9 +148,9 @@ class NotificationServiceTest {
 
     static class TestNotificationService extends NotificationService {
         public TestNotificationService(
-                                       NotificationLogService notificationLogService,
-                                       DeviceFcmTokenRepository deviceFcmTokenRepository,
-                                       UserRepository userRepository) {
+                NotificationLogService notificationLogService,
+                DeviceFcmTokenRepository deviceFcmTokenRepository,
+                UserRepository userRepository) {
             super(notificationLogService, deviceFcmTokenRepository, userRepository);
         }
 
@@ -157,8 +160,8 @@ class NotificationServiceTest {
                 maxAttempts = 2,
                 backoff = @org.springframework.retry.annotation.Backoff(delay = 10, multiplier = 2.0, maxDelay = 50)
         )
-        public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
-            super.sendMessage(deviceFcmToken, message);
+        public void sendMessage(DeviceFcmToken deviceFcmToken, Message message, NotificationLog notificationLog) {
+            super.sendMessage(deviceFcmToken, message, notificationLog);
         }
 
     }
