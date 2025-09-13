@@ -67,8 +67,9 @@ public class NotificationLog {
         this.notificationStatus = NotificationStatus.SUCCESS;
     }
 
-    public void markFail() {
+    public void markFail(MessagingErrorCode errorCode) {
         this.notificationStatus = NotificationStatus.FAIL;
+        this.errorCode = errorCode;
         this.count++;
     }
 }
