@@ -53,12 +53,12 @@ public class NotificationLog {
         this.count = count;
     }
 
-    public static NotificationLog record(Long userNotificationTokenId, String message, MessagingErrorCode errorCode) {
+    public static NotificationLog record(Long userNotificationTokenId, String message, MessagingErrorCode errorCode, NotificationStatus notificationStatus) {
         return NotificationLog.builder()
                 .userNotificationTokenId(userNotificationTokenId)
                 .message(message)
                 .errorCode(errorCode)
-                .notificationStatus(NotificationStatus.FAIL)
+                .notificationStatus(notificationStatus)
                 .count(1)
                 .build();
     }
