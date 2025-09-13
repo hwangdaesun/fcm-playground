@@ -27,15 +27,14 @@ public class NotificationLogService {
     }
 
     @Transactional
-    public void recordNotificationLog(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
+    public void recordNotificationLog(Long notificationLogId, MessagingErrorCode code) {
         try {
-            deviceFcmToken.markInvalid();
-            NotificationLog failLog = NotificationLog.record(
-                    deviceFcmToken.getId(), serializeMessage(message), code);
-            notificationLogRepository.save(failLog);
-            log.info("Fail Notification Log 기록 성공: {}", failLog);
+            NotificationLog notificationLog = notificationLogRepository.findById(notificationLogId)
+                    .orElseThrow(RuntimeException::new);
+            notificationLog.markFail(code);
+            log.info("Notification Log 기록 성공: {}", notificationLog.getId());
         } catch (Exception e) {
-            log.error("Fail Notification Log 기록 실패 : {}", e.getMessage());
+            log.error("Notification Log 기록 실패 : {}", e.getMessage());
         }
     }
 
