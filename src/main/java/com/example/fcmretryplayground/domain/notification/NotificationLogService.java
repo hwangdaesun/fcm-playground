@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,14 @@ public class NotificationLogService {
 
     private final NotificationLogRepository notificationLogRepository;
     private final ObjectMapper mapper;
+
+    @SneakyThrows
+    @Transactional
+    public NotificationLog recordReadyNotificationLog(DeviceFcmToken deviceFcmToken, Message message){
+        NotificationLog notificationLog = NotificationLog.record(
+                deviceFcmToken.getId(), serializeMessage(message), null, NotificationStatus.READY);
+        return notificationLogRepository.save(notificationLog);
+    }
 
     @Transactional
     public void recordNotificationLog(DeviceFcmToken deviceFcmToken, Message message, MessagingErrorCode code) {
