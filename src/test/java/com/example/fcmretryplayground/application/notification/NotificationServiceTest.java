@@ -9,10 +9,9 @@ import static org.mockito.Mockito.when;
 import com.example.fcmretryplayground.common.RetryableAlarmException;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmToken;
 import com.example.fcmretryplayground.domain.notification.DeviceFcmTokenRepository;
-import com.example.fcmretryplayground.domain.notification.NotificationLogRepository;
+import com.example.fcmretryplayground.domain.notification.NotificationLogService;
 import com.example.fcmretryplayground.domain.user.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -39,10 +38,7 @@ class NotificationServiceTest {
     private NotificationService notificationService;
 
     @Autowired
-    private NotificationLogRepository notificationLogRepository;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+    private NotificationLogService notificationLogService;
 
 
     @Test
@@ -50,7 +46,7 @@ class NotificationServiceTest {
     void retryable_then_success() throws FirebaseMessagingException {
         //given
         String mockFcmToken = "mockFcmToken";
-        DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(1L, mockFcmToken);
+        DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(mockFcmToken);
         Message mockMessage = getMessage(mockFcmToken);
 
         FirebaseMessaging mockFirebaseMessaging = mock(FirebaseMessaging.class);
@@ -77,7 +73,7 @@ class NotificationServiceTest {
     void retry_exhausted_then_recover() throws FirebaseMessagingException, JsonProcessingException {
         //given
         String mockFcmToken = "mockFcmToken";
-        DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(1L, mockFcmToken);
+        DeviceFcmToken mockDeviceFcmToken = getDeviceFcmToken(mockFcmToken);
         Message mockMessage = getMessage(mockFcmToken);
 
         FirebaseMessagingException mockMessagingException = getException(MessagingErrorCode.INTERNAL);
@@ -94,12 +90,11 @@ class NotificationServiceTest {
                     .thenThrow(mockMessagingException)
                     .thenThrow(mockMessagingException);
 
-            when(objectMapper.writeValueAsString(any())).thenReturn("{}");
             //then
             notificationService.sendMessage(mockDeviceFcmToken, mockMessage);
 
             verify(mockFirebaseMessaging, times(4)).send(any(Message.class));
-            verify(notificationLogRepository, times(1)).save(any());
+            verify(notificationLogService, times(1)).recordNotificationLog(any(), any(), any());
         }
     }
 
@@ -110,9 +105,9 @@ class NotificationServiceTest {
         return mockException;
     }
 
-    private DeviceFcmToken getDeviceFcmToken(long id, String token) {
+    private DeviceFcmToken getDeviceFcmToken(String token) {
         DeviceFcmToken deviceFcmToken = Mockito.mock(DeviceFcmToken.class);
-        when(deviceFcmToken.getId()).thenReturn(id);
+        when(deviceFcmToken.getId()).thenReturn(1L);
         when(deviceFcmToken.getFcmToken()).thenReturn(token);
         return deviceFcmToken;
     }
@@ -124,14 +119,10 @@ class NotificationServiceTest {
     @Configuration
     @EnableRetry
     static class TestConfig {
-        @Bean
-        public ObjectMapper getMapper() {
-            return mock(ObjectMapper.class);
-        }
 
         @Bean
-        public NotificationLogRepository getFailNotificationLogRepository() {
-            return mock(NotificationLogRepository.class);
+        public NotificationLogService getNotificationLogService() {
+            return mock(NotificationLogService.class);
         }
 
         @Bean
@@ -146,24 +137,24 @@ class NotificationServiceTest {
 
         @Bean
         public NotificationService getNotificationService() {
-            return new NotificationService(getMapper(), getFailNotificationLogRepository(),
+            return new NotificationService(getNotificationLogService(),
                     getDeviceFcmTokenRepository(), getUserRepository());
         }
 
     }
 
     static class TestNotificationService extends NotificationService {
-        public TestNotificationService(ObjectMapper mapper,
-                                       NotificationLogRepository notificationLogRepository,
+        public TestNotificationService(
+                                       NotificationLogService notificationLogService,
                                        DeviceFcmTokenRepository deviceFcmTokenRepository,
                                        UserRepository userRepository) {
-            super(mapper, notificationLogRepository, deviceFcmTokenRepository, userRepository);
+            super(notificationLogService, deviceFcmTokenRepository, userRepository);
         }
 
         @Override
         @org.springframework.retry.annotation.Retryable(
-                value = RetryableAlarmException.class,
-                maxAttempts = 4,
+                retryFor = RetryableAlarmException.class,
+                maxAttempts = 2,
                 backoff = @org.springframework.retry.annotation.Backoff(delay = 10, multiplier = 2.0, maxDelay = 50)
         )
         public void sendMessage(DeviceFcmToken deviceFcmToken, Message message) {
