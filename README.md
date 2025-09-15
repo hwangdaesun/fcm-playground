@@ -4,8 +4,8 @@
 
 안정적인 푸시 알림 전송을 위해 모든 알림의 생명주기를 READY, SUCCESS, FAIL 상태로 추적하는 상태 기반(State-Driven) 아키텍처를 설계했습니다.
 
-일시적인 오류는 **Spring Retry(@Retryable, @Recover)**를 통해 즉시 복구하고, 놓치거나 장기화된 장애는 복구 스케줄러가 주기적으로 처리하여 **최종 일관성(Eventual
-Consistency)**을 보장합니다. 또한, Timeout을 명시하여 외부 시스템의 응답 지연이 전체 서비스의 장애로 확산되는 것을 차단했습니다.
+일시적인 오류는 Spring Retry(@Retryable, @Recover)를 통해 즉시 복구하고, 놓치거나 장기화된 장애는 복구 스케줄러가 주기적으로 처리하여 최종 일관성(Eventual
+Consistency)을 보장합니다. 또한, Timeout을 명시하여 외부 시스템의 응답 지연이 전체 서비스의 장애로 확산되는 것을 차단했습니다.
 
 ### 엔티티 설계
 
