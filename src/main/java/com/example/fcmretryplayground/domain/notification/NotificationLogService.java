@@ -3,7 +3,6 @@ package com.example.fcmretryplayground.domain.notification;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.MessagingErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -27,11 +26,11 @@ public class NotificationLogService {
     }
 
     @Transactional
-    public void recordNotificationLog(Long notificationLogId, MessagingErrorCode code) {
+    public void recordNotificationLog(RecordNotificationLogCommand command) {
         try {
-            NotificationLog notificationLog = notificationLogRepository.findById(notificationLogId)
+            NotificationLog notificationLog = notificationLogRepository.findById(command.notificationLogId())
                     .orElseThrow(RuntimeException::new);
-            notificationLog.markFail(code);
+            notificationLog.markFail(command.code());
             log.info("Notification Log 기록 성공: {}", notificationLog.getId());
         } catch (Exception e) {
             log.error("Notification Log 기록 실패 : {}", e.getMessage());

@@ -77,7 +77,11 @@ public class NotificationService {
     public void recover(
             RetryableAlarmException ex,
             DeviceFcmToken deviceFcmToken, Message message, NotificationLog notificationLog) {
-        notificationLogService.recordNotificationLog(notificationLog.getId(), ex.getCode());
+        notificationLogService.recordNotificationLog(
+                new com.example.fcmretryplayground.domain.notification.RecordNotificationLogCommand(
+                        notificationLog.getId(), ex.getCode()
+                )
+        );
     }
 
     public void handleSendFailure(DeviceFcmToken deviceFcmToken, Message message, FirebaseMessagingException e) {

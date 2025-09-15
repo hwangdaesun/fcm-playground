@@ -97,7 +97,7 @@ class NotificationServiceTest {
             notificationService.sendMessage(mockDeviceFcmToken, mockMessage, notificationLog);
 
             verify(mockFirebaseMessaging, times(2)).send(any(Message.class));
-            verify(notificationLogService, times(1)).recordNotificationLog(any(), any());
+            verify(notificationLogService, times(1)).recordNotificationLog(any());
         }
     }
 
